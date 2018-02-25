@@ -35,13 +35,6 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		var url, shortened string
 		errd := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
 		c, err := r.Cookie("auth")
-		if err != nil {
-			panic(err)
-		}
-		if errd != nil {
-			panic(errd)
-		}
-		logger.Log(r.RemoteAddr + " accessed ?s; " + c.Value + ":" + os.Getenv("SHORT_AUTH"))
 		if errd != nil && err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
 			logger.Log(r.RemoteAddr + " authenticated properly")
 			query, err := db.Prepare("INSERT INTO links(url, short) VALUES (?,?)")
@@ -62,6 +55,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func shortened(w http.ResponseWriter, r *http.Request) {
+
 	short := mux.Vars(r)["short"]
 	var url string
 	err := db.QueryRow("SELECT url FROM links WHERE (short='" + short + "')").Scan(&url)
@@ -69,14 +63,12 @@ func shortened(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-
+		logger.Log("(302) " + short + " -> " + url + " | " + r.RemoteAddr)
 		http.Redirect(w, r, url, 302)
-		logger.Log("(302) " + short + " | " + r.RemoteAddr)
 	} else {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		logger.Log("(404)" + short + " | " + r.RemoteAddr)
+		http.Redirect(w, r, "/", http.StatusNotFound)
 	}
-
 }
 
 // dumplings
@@ -109,7 +101,7 @@ func main() {
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/links", dumplinks).Methods("GET")
 	rtr.HandleFunc("/teapot", teapot).Methods("GET")
-	rtr.HandleFunc("/{short:4}", shortened).Methods("GET")
+	rtr.HandleFunc("/{short:.{4}}", shortened).Methods("GET")
 	rtr.HandleFunc("/", handle).Methods("GET")
 	http.Handle("/", rtr)
 	logger.Log("Everything is up!")
