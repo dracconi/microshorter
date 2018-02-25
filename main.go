@@ -28,7 +28,7 @@ func randStringBytes(n int) string {
 func handle(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(
 		`
-		?s=(original url)
+		GET s=URL - shorten
 		`))
 
 	if s := r.URL.Query()["s"]; len(s) > 0 && s[0] != "" {
@@ -46,6 +46,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
+			logger.Log(s[0] + " -> " + shortened)
 		}
 
 		w.Write([]byte(shortened))
@@ -62,8 +63,10 @@ func shortened(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Redirect(w, r, url, 302)
+		logger.Log("(302) " + short + " | " + r.RemoteAddr)
 	} else {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		logger.Log("(404)" + short + " | " + r.RemoteAddr)
 	}
 
 }
