@@ -15,7 +15,7 @@ import (
 
 var db *sql.DB
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"
 
 func randStringBytes(n int) string {
 	b := make([]byte, n)
@@ -33,9 +33,16 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if s := r.URL.Query()["s"]; len(s) > 0 && s[0] != "" {
 		var url, shortened string
+		logger.Log("(301) Trying to shorten " + s[0])
 		errd := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
 		c, err := r.Cookie("auth")
-		if errd != nil && err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
+		if errd != nil {
+			logger.Log(errd.Error())
+		}
+		if err != nil {
+			logger.Log(err.Error())
+		}
+		if shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
 			logger.Log(r.RemoteAddr + " authenticated properly")
 			query, err := db.Prepare("INSERT INTO links(url, short) VALUES (?,?)")
 			if err != nil {
@@ -52,10 +59,10 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		w.Write([]byte(shortened))
 	}
+	defer r.Body.Close()
 }
 
 func shortened(w http.ResponseWriter, r *http.Request) {
-
 	short := mux.Vars(r)["short"]
 	var url string
 	err := db.QueryRow("SELECT url FROM links WHERE (short='" + short + "')").Scan(&url)
@@ -69,6 +76,7 @@ func shortened(w http.ResponseWriter, r *http.Request) {
 		logger.Log("(404)" + short + " | " + r.RemoteAddr)
 		http.Redirect(w, r, "/", http.StatusNotFound)
 	}
+	defer r.Body.Close()
 }
 
 // dumplings
@@ -83,11 +91,17 @@ func dumplinks(w http.ResponseWriter, r *http.Request) {
 		resp.Scan(&url, &short)
 		w.Write([]byte(url + " | " + short + "\n"))
 	}
+	defer r.Body.Close()
 }
 
 func teapot(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTeapot)
 	w.Write([]byte("Oh! It's a teapot ;3"))
+	defer r.Body.Close()
+}
+
+func authenticate(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func main() {
@@ -102,6 +116,7 @@ func main() {
 	rtr.HandleFunc("/links", dumplinks).Methods("GET")
 	rtr.HandleFunc("/teapot", teapot).Methods("GET")
 	rtr.HandleFunc("/{short:[a-zA-Z0-9]{4}}", shortened).Methods("GET")
+	rtr.HandleFunc("/a", authenticate).Methods("GET")
 	rtr.HandleFunc("/", handle).Methods("GET")
 	http.Handle("/", rtr)
 	logger.Log("Everything is up!")
