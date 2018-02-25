@@ -2,12 +2,12 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"time"
 
+	"github.com/dracconi/microshorter/logger"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -59,11 +59,30 @@ func shortened(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 
-		http.Redirect(w, r, url, http.StatusSeeOther)
+		http.Redirect(w, r, url, 302)
 	} else {
-		http.Redirect(w, r, "/", http.StatusNotFound)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 	}
 
+}
+
+// dumplings
+func dumplinks(w http.ResponseWriter, r *http.Request) {
+	resp, err := db.Query("SELECT url, short FROM links")
+	if err != nil {
+		panic(err)
+	}
+	var url, short string
+	w.Write([]byte("url | shortened\n----+----------\n"))
+	for resp.Next() {
+		resp.Scan(&url, &short)
+		w.Write([]byte(url + " | " + short + "\n"))
+	}
+}
+
+func teapot(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusTeapot)
+	w.Write([]byte("Oh! It's a teapot ;3"))
 }
 
 func main() {
@@ -75,10 +94,12 @@ func main() {
 	}
 
 	rtr := mux.NewRouter()
-	fmt.Printf("works!")
+	rtr.HandleFunc("/links", dumplinks).Methods("GET")
+	rtr.HandleFunc("/teapot", teapot).Methods("GET")
 	rtr.HandleFunc("/{short}", shortened).Methods("GET")
 	rtr.HandleFunc("/", handle).Methods("GET")
 	http.Handle("/", rtr)
+	logger.Log("Everything is up!")
 	log.Fatal(http.ListenAndServe(":6060", nil))
 
 }
