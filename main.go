@@ -35,6 +35,9 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		var url, shortened string
 		err := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
 		c, err := r.Cookie("auth")
+		if err != nil {
+			panic(err)
+		}
 		if err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
 			query, err := db.Prepare("INSERT INTO links(url, short) VALUES (?,?)")
 			if err != nil {
