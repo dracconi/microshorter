@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dracconi/microshorter/logger"
@@ -33,7 +34,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if s := r.URL.Query()["s"]; len(s) > 0 && s[0] != "" {
 		var url, shortened string
 		err := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
-		if err != nil && shortened == "" {
+		c, err := r.Cookie("auth")
+		if err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
 			query, err := db.Prepare("INSERT INTO links(url, short) VALUES (?,?)")
 			if err != nil {
 				panic(err)
