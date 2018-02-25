@@ -15,7 +15,7 @@ import (
 
 var db *sql.DB
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 func randStringBytes(n int) string {
 	b := make([]byte, n)
@@ -101,7 +101,7 @@ func main() {
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/links", dumplinks).Methods("GET")
 	rtr.HandleFunc("/teapot", teapot).Methods("GET")
-	rtr.HandleFunc("/{short:.{4}}", shortened).Methods("GET")
+	rtr.HandleFunc("/{short:[a-zA-Z0-9]{4}}", shortened).Methods("GET")
 	rtr.HandleFunc("/", handle).Methods("GET")
 	http.Handle("/", rtr)
 	logger.Log("Everything is up!")
