@@ -33,12 +33,17 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if s := r.URL.Query()["s"]; len(s) > 0 && s[0] != "" {
 		var url, shortened string
-		err := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
+		errd := db.QueryRow("SELECT url, short FROM links WHERE (url='"+s[0]+"')").Scan(&url, &shortened)
 		c, err := r.Cookie("auth")
 		if err != nil {
 			panic(err)
 		}
-		if err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
+		if errd != nil {
+			panic(errd)
+		}
+		logger.Log(r.RemoteAddr + " accessed ?s; " + c.Value + ":" + os.Getenv("SHORT_AUTH"))
+		if errd != nil && err != nil && shortened == "" && c.Value == os.Getenv("SHORT_AUTH") {
+			logger.Log(r.RemoteAddr + " authenticated properly")
 			query, err := db.Prepare("INSERT INTO links(url, short) VALUES (?,?)")
 			if err != nil {
 				panic(err)
@@ -104,7 +109,7 @@ func main() {
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/links", dumplinks).Methods("GET")
 	rtr.HandleFunc("/teapot", teapot).Methods("GET")
-	rtr.HandleFunc("/{short}", shortened).Methods("GET")
+	rtr.HandleFunc("/{short:4}", shortened).Methods("GET")
 	rtr.HandleFunc("/", handle).Methods("GET")
 	http.Handle("/", rtr)
 	logger.Log("Everything is up!")
